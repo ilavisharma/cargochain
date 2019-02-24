@@ -1,10 +1,12 @@
+pragma solidity ^0.5.0;
+
 contract Shipment {
   // Metainformation owner of Cargo
   struct Seller {
     bytes32 name;
     bytes32 company;
     bytes32 addr;
-    address account;
+    address payable account;
   }
 
   // Basic information of shipper
@@ -12,7 +14,7 @@ contract Shipment {
     bytes32 name;
     bytes32 company;
     bytes32 addr;
-    address account;
+    address payable account;
     bool paid;
   }
 
@@ -51,11 +53,11 @@ contract Shipment {
   event paymentReleased(string s, uint amount);
   event delayedShipment(string s, uint amount);
 
-  function Shipment(bytes32 _name,
+  constructor(bytes32 _name,
                     bytes32 _company,
                     bytes32 _addr,
                     bytes32 cargoname,
-                    string _description,
+                    string memory _description,
                     bytes32 _hscode,
                     uint _quantity,
                     uint _weight,
@@ -63,10 +65,10 @@ contract Shipment {
                     bytes32 _destination,
                     uint _deadline,
                     uint _penalty,
-                    string _hash,
+                    string memory _hash,
                     bytes32 _vessel,
                     bytes32 _voyage,
-                    bytes32 _booking) {
+                    bytes32 _booking) public {
     seller.name = _name;
     seller.company = _company;
     seller.addr = _addr;
@@ -90,7 +92,7 @@ contract Shipment {
     ship.active = false;
   }
 
-  function agreement(bytes32 _name, bytes32 _company, bytes32 _addr) {
+  function agreement(bytes32 _name, bytes32 _company, bytes32 _addr) public payable  {
     buyer.name = _name;
     buyer.company = _company;
     buyer.addr = _addr;
@@ -101,28 +103,24 @@ contract Shipment {
     cargo.startdate = block.timestamp;
     ship.active = true;
 
-    newAgreement("New Agreement between two Parties!", seller.name, buyer.name);
+    emit newAgreement("New Agreement between two Parties!", seller.name, buyer.name);
   }
 
-  function escrow() {
-    if (buyer.paid) {
-      throw;
-    }
+  function escrow() internal {
+    require(buyer.paid);
     if (cargo.startdate + (60 * 60 * 72) >= block.timestamp) {
       releasePayment();
     }
   }
 
-  function releasePayment() {
-    if (buyer.paid) {
-      throw;
-    }
-    seller.account.send(cargo.payment);
+  function releasePayment() internal {
+    require(buyer.paid);
+    seller.account.transfer(cargo.payment);
     buyer.paid = true;
-    paymentReleased("Payment released!", cargo.payment);
+    emit paymentReleased("Payment released!", cargo.payment);
   }
 
-  function arrival() {
+  function arrival() public {
     uint delay = block.timestamp - cargo.deadline;
     uint day = 60 * 60 * 24;
     uint totaldelay = 0;
@@ -130,7 +128,7 @@ contract Shipment {
     if (delay >= day) {
       totaldelay = delay / day;
       uint penalty = totaldelay * cargo.penalty;
-      delayedShipment("The shipment has arrived late. Delay penalty will be charged.", penalty);
+      emit delayedShipment("The shipment has arrived late. Delay penalty will be charged.", penalty);
     }
   }
 }
